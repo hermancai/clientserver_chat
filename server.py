@@ -1,62 +1,35 @@
 import socket
-import struct
+from SocketManager import SocketManager
 
-SERVER = "localhost"
-PORT = 3001
 
-# create server socket
+# set up server
+sm = SocketManager()
 serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-serverSocket.bind((SERVER, PORT))
+serverSocket.bind((sm.getHost(), sm.getPort()))
 
 # listen for a client
 serverSocket.listen(1)
-print("Server listening on %s port:%d" % (SERVER, PORT))
+print("Server listening on %s port:%d" % (sm.getHost(), sm.getPort()))
 
 # connect with client
 conn, addr = serverSocket.accept()
+sm.setSocket(conn)
 print("Connected by", addr)
 print("Waiting for message...")
 
+# loop until user enters "/q"
 while True:
-	# get length of data to receive
-	bytesToReceive = 4
-	dataLength = b""
-	while bytesToReceive > 0:
-		tempBuffer = conn.recv(1024)
-		bytesToReceive -= len(tempBuffer)
-		dataLength += tempBuffer
-	dataLength = struct.unpack(">i", dataLength)[0]
-
-	# receive data
-	dataReceived = b""
-	while dataLength > 0:
-		tempBuffer = conn.recv(1024)
-		dataLength -= len(tempBuffer)
-		dataReceived += tempBuffer
-	dataReceived = dataReceived.decode()
-	
-	# quit program
+	# get response from client
+	dataReceived = sm.receiveData()
 	if dataReceived == "/q":
 		break
-
 	print("CLIENT:", dataReceived)
 
-	# get userInput from user
+	# send user input to client
 	userInput = input("SERVER: ")
-	encodedInput = userInput.encode()
-	
-	# send length of input
-	inputLength = struct.pack(">i", len(encodedInput))
-	while inputLength:
-		inputLength = inputLength[conn.send(inputLength):]
-
-	# send input
-	while encodedInput:
-		encodedInput = encodedInput[conn.send(encodedInput):]
-
-	# quit program
-	if dataReceived == "/q":
+	sm.sendData(userInput)
+	if userInput == "/q":
 		break
 
 conn.close()
